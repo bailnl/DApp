@@ -109,7 +109,7 @@
         call: function (o, callback) {
             let options = $.extend({
                 to: address,
-                value: "0",
+                value: "1",
                 callFunction: "",
                 callArgs: "[]",
             }, o)
@@ -130,9 +130,12 @@
 
 
             let contentTpl = (data) => {
+                var div = document.createElement('div')
+                div.innerHTML = data.content
+                var content = div.innerText
                 return `
             <div class="list-group-item list-group-item-action flex-column align-items-start">
-                <p class="mb-1">${data.content}</p>
+                <p class="mb-1">${content}</p>
                 <div class="d-flex w-100 justify-content-between">
                     <small class="text-muted">${data.time}</small>
                 </div>
@@ -143,8 +146,6 @@
             return api.simulateCall({
                 callFunction: "total",
             }, function (resp) {
-
-                console.log('resp', resp)
                 api.simulateCall({
                     callFunction: "get",
                     callArgs: "[" + resp.result + ", 1]"
@@ -155,7 +156,10 @@
                         $('#contentList').html(result.map(contentTpl).reverse().join(''))
 
                     } else {
-                        $('#contentList').html('发表你的心事')
+                        $('#contentList').html(contentTpl({
+                            content: '来发表你的心事吧。',
+                            time: new Date().toLocaleString(),
+                        }))
                     }
 
                 })
