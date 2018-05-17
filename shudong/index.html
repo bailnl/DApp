@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>树洞</title>
+    <link rel="stylesheet" href="lib/bootstrap-4.0.0-dist/css/bootstrap.min.css">
+
+    <style>
+        #app {
+            margin: 20px;
+        }
+
+        #app header h1 span {
+            font-size: 14px;
+            color: #721c24;
+        }
+
+        #app .shudong-form {
+            margin: 20px 0;
+        }
+
+        #app .words .f span {
+
+            background: linear-gradient(to right, red, blue);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        #app .words .f {
+            margin-left: 40px;
+        }
+
+        #app .words .s span {
+
+            background: linear-gradient(to right, #3fff3c, #ff6e90);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <header>
+        <h1>树洞 <span>在这里,我们为您寄存秘密、心事</span></h1>
+    </header>
+    <div>
+
+        <div class="words">
+            <div class="f"><span>那些现实中不曾发出的声音</span></div>
+            <div class="s"><span>请把它留意在这里.</span></div>
+        </div>
+        <form class="shudong-form" id="shudongForm">
+
+            <div class="form-group">
+                <textarea class="form-control" id="contentText" rows="3" placeholder="说出你的心事"></textarea>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-outline-primary">匿名提交</button>
+            </div>
+        </form>
+
+        <div id="loading" style="display: none">正在交易，请稍等，交易成功后显示！...</div>
+
+    </div>
+    <div>
+        <div>
+            <h6>看看大家的心事：</h6>
+        </div>
+        <div class="list-group" id="contentList">
+            <div>正在获取...</div>
+        </div>
+    </div>
+</div>
+
+<script src=lib/jquery-3.3.1.min.js></script>
+<script src=lib/nebPay.js></script>
+<script src=lib/bootstrap-4.0.0-dist/js/bootstrap.min.js></script>
+<script src=lib/nebulas.js></script>
+<script>
+
+    let address = 'n1nmbfFn77schnpgKdi2NUo3FKZYjY5qSQ3'
+    var NebPay = require("nebpay")     //https://github.com/nebulasio/nebPay
+    var nebPay = new NebPay()
+
+
+    var api = {
+        simulateCall: function (o, callback) {
+            let options = $.extend({
+                to: address,
+                value: "0",
+                callFunction: "",
+                callArgs: "[]",
+            }, o)
+
+            return nebPay.simulateCall(options.to, options.value, options.callFunction, options.callArgs, {
+                listener: function (resp) {
+                    if (callback) {
+                        callback(resp)
+                    }
+                }
+            })
+        },
+
+
+        call: function (o, callback) {
+            let options = $.extend({
+                to: address,
+                value: "0",
+                callFunction: "",
+                callArgs: "[]",
+            }, o)
+
+            return nebPay.call(options.to, options.value, options.callFunction, options.callArgs, {
+                listener: function (resp) {
+                    if (callback) {
+                        callback(resp)
+                    }
+                }
+            })
+        }
+    }
+
+
+    var shudong = {
+        getList: function () {
+
+
+            let contentTpl = (data) => {
+                return `
+            <div class="list-group-item list-group-item-action flex-column align-items-start">
+                <p class="mb-1">${data.content}</p>
+                <div class="d-flex w-100 justify-content-between">
+                    <small class="text-muted">${data.time}</small>
+                </div>
+            </div>`
+            }
+
+
+            return api.simulateCall({
+                callFunction: "total",
+            }, function (resp) {
+
+                console.log('resp', resp)
+                api.simulateCall({
+                    callFunction: "get",
+                    callArgs: "[" + resp.result + ", 1]"
+                }, function (resp) {
+                    let result = JSON.parse(resp.result)
+                    console.log('result', result)
+                    if (result.length > 0) {
+                        $('#contentList').html(result.map(contentTpl).reverse().join(''))
+
+                    } else {
+                        $('#contentList').html('发表你的心事')
+                    }
+
+                })
+            })
+        },
+        add: function (text, callback) {
+            return api.call({
+                callFunction: "add",
+                callArgs: `["${text}", "${new Date().toLocaleString()}"]`
+            }, function (resp) {
+                if (callback) {
+                    callback(resp)
+                }
+            })
+        }
+    }
+
+    $(function () {
+        shudong.getList()
+
+        $('#shudongForm').on('submit', (e) => {
+            e.preventDefault()
+            var serialNumber = shudong.add($('#contentText').val(), function (resp) {
+                $('#contentText').val('')
+                $('#loading').show()
+                var intervalQuery = setInterval(function () {
+                    nebPay.queryPayInfo(serialNumber)
+                        .then(function (resp) {
+                            var respObject = JSON.parse(resp)
+                            if (respObject.code === 0) {
+                                alert(`交易完成， 提交成功!`)
+                                clearInterval(intervalQuery)
+                                $('#loading').hide()
+                                shudong.getList()
+                            }
+                        })
+                        .catch(function (err) {
+                            console.log(err)
+                        })
+                }, 5000)
+
+            })
+        })
+    })
+
+
+</script>
+</body>
+</html>
